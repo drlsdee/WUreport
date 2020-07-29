@@ -15,10 +15,15 @@ function Get-WuReport {
     Write-Verbose -Message "$myName Getting WSUS URIs from the registry..."
     [hashtable]$wsusUris    = Get-WsusUri
 
+    Write-Verbose -Message "$myName Getting the usernames of the users logged on..."
+    [string[]]$userNames    = Get-LoggedUserNames
+
     Write-Verbose -Message "$myName Filling the report values..."
     $wsusUris.Keys.ForEach({
         $reportTable.$_     = $wsusUris.$_
     })
+
+    $reportTable.UserNames  = $userNames
 
     Write-Verbose -Message "$myName Returning the result..."
     switch ($OutputType) {
