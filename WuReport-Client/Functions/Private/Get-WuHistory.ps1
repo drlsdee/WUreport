@@ -40,55 +40,68 @@ function Get-WuHistory {
 
     $wuHistory  = $wuSearcher.QueryHistory(0,$wuHistCnt)
 
+    [hashtable]$wuEventsAll = @{}
+
     @($wuHistory).ForEach({
-        [int]$resultCode        = $_.ResultCode
-        if ($_.Title)
-        {
-            [string[]]$kbIdStr        = $kbIdRegex.Match($_.Title)
-            [string[]]$kbNumberStr    = [regex]::Replace($kbIdStr, '[^0-9]', '')
+        [string]$updateTitle    = $_.Title
+
+        if ($updateTitle) {
+            [int]$updateResultCode  = $_.ResultCode
+            switch ($updateResultCode) {
+                0   {   [string]$updateResultString     = 'NotStarted'  }
+                1   {   [string]$updateResultString     = 'InProgress'  }
+                2   {   [string]$updateResultString     = 'Succeeded'   }
+                3   {   [string]$updateResultString     = 'Errors'      }
+                4   {   [string]$updateResultString     = 'Failed'      }
+                5   {   [string]$updateResultString     = 'Aborted'     }
+            }
+            [string]$kbStringRaw    = $kbIdRegex.Match($updateTitle)
+            [string]$kbNumberStr    = [regex]::Replace($kbStringRaw, '[^0-9]', '')
+            [string]$kbArticleId    = "KB$($kbNumberStr)"
             [datetime]$installDate  = $_.Date
             #   Date string in RFC 3389 / ISO 8601 format.
             #   But the "K" letter won't work here. Seems like the timestamp in WU history events doesn't store the TimeZone info.
             [string]$instDateStr    = $installDate.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
 
-            [hashtable]$wuEvent     = @{
-                Title           = $_.Title
-                KBArticleID     = $kbIdStr
-                KBNumber        = $kbNumberStr
-                Date            = $installDate
-                DateString      = $instDateStr
+            $wuEventCurrent         = @{
+                Title               = $updateTitle
+                Date                = $installDate
+                DateString          = $instDateStr
+                Result              = $updateResultString
+                KBArticleID         = $kbArticleId
             }
-            switch ($resultCode) {
-                0   {
-                    $updatesHistory.NotStarted  += $wuEvent
-                }
-                1   {
-                    $updatesHistory.InProgress  += $wuEvent
-                }
-                2   {
-                    $updatesHistory.Succeeded   += $wuEvent
-                }
-                3   {
-                    $updatesHistory.Errors      += $wuEvent
-                }
-                4   {
-                    $updatesHistory.Failed      += $wuEvent
-                }
-                5   {
-                    $updatesHistory.Aborted     += $wuEvent
-                }
+
+            if (
+                (-not $wuEventsAll.ContainsKey($kbNumberStr)) -or `
+                ($wuEventsAll.$kbNumberStr.Date -lt $installDate)
+            )
+            {
+                Write-Verbose -Message "$myName Update: KB No $($kbNumberStr); Installation date: $($installDate); Result: $($updateResultString)"
+                $wuEventsAll.$kbNumberStr   = $wuEventCurrent
             }
         }
+    })
+
+    $wuEventsAll.Keys.ForEach({
+        [string]$keyName        = $_
+        [string]$wuEventResult  = $wuEventsAll.$keyName.Result
+        [hashtable]$wuEvent     = @{
+            Title           = $wuEventsAll.$keyName.Title
+            KBArticleID     = $wuEventsAll.$keyName.KBArticleID
+            KBNumber        = $keyName
+            Date            = $wuEventsAll.$keyName.Date
+            DateString      = $wuEventsAll.$keyName.DateString
+        }
+        $updatesHistory.$wuEventResult  += $wuEvent
     })
 
     $updatesHistory.Keys.ForEach({
         [string]$keyName    = $_
         [int]$eventsCount   = $updatesHistory.$keyName.Count
         if ($eventsCount) {
-            Write-Verbose -Message "$myName Number of updates count `"$($keyName)`" status: $($eventsCount)"
+            Write-Verbose -Message "$myName Number of updates in `"$($keyName)`" status: $($eventsCount)"
         }
     })
-    #   TODO: catch and clean aborted or failed updates that were installed eventually.
 
     #   Here we will try to get assigned updates (if any). Creating service manager (IUpdateServiceManager):
     $wuSvcManager           = $wuSession.CreateUpdateServiceManager()
@@ -123,8 +136,6 @@ function Get-WuHistory {
         }
         catch {
             Write-Warning -Message "$myName Cannot register service: $($ServiceType); Exception: $($_.Exception.Message)"
-            #   We can't look for pending updates, so just return empty list.
-            return $updatesHistory
         }
     }
 
@@ -135,8 +146,6 @@ function Get-WuHistory {
     }
     catch {
         Write-Warning -Message "$myName Cannot find updates from the source: $($ServiceType); Exception: $($_.Exception.Message)"
-        #   We can't look for pending updates, so just return empty list again.
-        return $updatesHistory
     }
     if ($wuPending) {
         Write-Verbose -Message "$myName Found $($wuPending.Updates.Count) pending updates."
