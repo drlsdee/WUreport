@@ -39,6 +39,24 @@ function Get-WuReport {
     else {
         [bool]$pendingUpdates   = $false
     }
+    [datetime[]]$datesAll       = @()
+    $wuHistAll.Keys.Where({$_ -ne 'Pending'}).ForEach({
+        [string]$keyName        = $_
+        if ($wuHistAll.$keyName)
+        {
+            [hashtable[]]$wuEvents  = $wuHistAll.$keyName
+            [datetime]$dateLast     = ($wuEvents.Date | Sort-Object -Descending)[0]
+            $datesAll               += $dateLast
+        }
+    })
+    if ($datesAll) {
+        [nullable[datetime]]$lastInstallDate    = ($datesAll | Sort-Object -Descending)[0]
+        [string]$lastInstallDateString          = $lastInstallDate.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
+    }
+    else {
+        [nullable[datetime]]$lastInstallDate    = $null
+        [string]$lastInstallDateString          = [string]::Empty
+    }
 
     Write-Verbose -Message "$myName Filling the report values..."
     $wsusUris.Keys.ForEach({
@@ -50,6 +68,10 @@ function Get-WuReport {
     $reportTable.WindowsUpdate  = $wuHistAll
 
     $reportTable.UpdatesPending = $pendingUpdates
+
+    $reportTable.LastInstall    = $lastInstallDate
+
+    $reportTable.LastInstallString  = $lastInstallDateString
 
     Write-Verbose -Message "$myName Returning the result..."
     switch ($OutputType) {
