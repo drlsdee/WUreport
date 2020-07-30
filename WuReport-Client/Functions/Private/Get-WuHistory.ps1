@@ -19,6 +19,7 @@ function Get-WuHistory {
     #   Creating the WU session:
     $wuSession              = New-Object -ComObject 'Microsoft.Update.Session'
     $wuSearcher             = $wuSession.CreateUpdateSearcher()
+    [int]$wuHistCnt         = $wuSearcher.GetTotalHistoryCount()
     
     #   Maybe I miss something, but as I can see, the records in the Windows Update history have not properties containing the pure KB number.
     #   Something like the ".KBArticleIDs" in the UpdateSearcher results. Therefore I should deal with regex.
@@ -37,7 +38,9 @@ function Get-WuHistory {
         Pending     = [hashtable[]]@()
     }
 
-    $wuHistory.ForEach({
+    $wuHistory  = $wuSearcher.QueryHistory(0,$wuHistCnt)
+
+    @($wuHistory).ForEach({
         [int]$resultCode        = $_.ResultCode
         if ($_.Title)
         {
