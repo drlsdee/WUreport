@@ -125,6 +125,7 @@ function Get-WuHistory {
     #   Check if the selected service is registered
     if ($wuSvcManager.QueryServiceRegistration($svcId).Service) {
         Write-Verbose -Message "$myName Found registered Windows Update service type: $ServiceType"
+        $wuSearcher.ServiceID   = $svcId
         $wuSearcher.ServerSelection = $svcSel
     }
     else {
