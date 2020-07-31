@@ -25,8 +25,15 @@ function Get-WuReport {
 
     [hashtable]$reportTable = @{}
 
+    [System.Management.ManagementObject]$compNameInfo   = Get-WmiObject -Class Win32_ComputerSystem -Property DNSHostName, Domain
+    [string]$thisDnsHostName    = "$($compNameInfo.DNSHostName)", "$($compNameInfo.Domain)" -join '.'
+    Write-Verbose -Message "$myName Collecting info from this computer: $thisDnsHostName"
+
     Write-Verbose -Message "$myName Getting WSUS URIs from the registry..."
     [hashtable]$wsusUris    = Get-WsusUri
+
+    Write-Verbose -Message "$myName Getting `"Pending reboot`" state..."
+    [bool]$pendingReboot    = Get-PendingRebootStatus
 
     Write-Verbose -Message "$myName Getting the usernames of the users logged on..."
     [string[]]$userNames    = Get-LoggedUserNames
@@ -59,19 +66,23 @@ function Get-WuReport {
     }
 
     Write-Verbose -Message "$myName Filling the report values..."
+    $reportTable.ComputerName       = $thisDnsHostName
+
     $wsusUris.Keys.ForEach({
-        $reportTable.$_     = $wsusUris.$_
+        $reportTable.$_             = $wsusUris.$_
     })
 
-    $reportTable.UserNames  = $userNames
+    $reportTable.UserNames          = $userNames
 
-    $reportTable.WindowsUpdate  = $wuHistAll
+    $reportTable.WindowsUpdate      = $wuHistAll
 
-    $reportTable.UpdatesPending = $pendingUpdates
+    $reportTable.UpdatesPending     = $pendingUpdates
 
-    $reportTable.LastInstall    = $lastInstallDate
+    $reportTable.LastInstall        = $lastInstallDate
 
     $reportTable.LastInstallString  = $lastInstallDateString
+
+    $reportTable.PendingReboot      = $pendingReboot
 
     Write-Verbose -Message "$myName Returning the result..."
     switch ($OutputType) {
@@ -79,7 +90,7 @@ function Get-WuReport {
             return $reportTable
         }
         'JSON'      {
-            [string]$reportJson = ConvertTo-Json -InputObject $reportTable -Compress -Depth 100
+            [string]$reportJson     = ConvertTo-Json -InputObject $reportTable -Compress -Depth 100
             return $reportJson
         }
     }
