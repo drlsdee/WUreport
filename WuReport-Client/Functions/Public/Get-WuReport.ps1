@@ -25,6 +25,9 @@ function Get-WuReport {
 
     [hashtable]$reportTable = @{}
 
+    #   This string will be a part of the report filename, so we should avoid invalid characters like ":".
+    [string]$reportDateTime = [datetime]::UtcNow.ToString('yyyyMMddTHHmmss.fff')
+
     [System.Management.ManagementObject]$compNameInfo   = Get-WmiObject -Class Win32_ComputerSystem -Property DNSHostName, Domain
     [string]$thisDnsHostName    = "$($compNameInfo.DNSHostName)", "$($compNameInfo.Domain)" -join '.'
     Write-Verbose -Message "$myName Collecting info from this computer: $thisDnsHostName"
@@ -68,6 +71,8 @@ function Get-WuReport {
     Write-Verbose -Message "$myName Filling the report values..."
     $reportTable.ComputerName       = $thisDnsHostName
 
+    $reportTable.ReportDate         = $reportDateTime
+
     $wsusUris.Keys.ForEach({
         $reportTable.$_             = $wsusUris.$_
     })
@@ -83,6 +88,19 @@ function Get-WuReport {
     $reportTable.LastInstallString  = $lastInstallDateString
 
     $reportTable.PendingReboot      = $pendingReboot
+
+    switch ($true) {
+        $pendingReboot  {
+            $reportTable.TimeStampRebootRequired    = [datetime]::Now.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
+        }
+        $pendingUpdates {
+            $reportTable.TimeStampUpdatesFound      = [datetime]::Now.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
+        }
+        Default {
+            $reportTable.TimeStampUpdatesFound      = $null
+            $reportTable.TimeStampRebootRequired    = $null
+        }
+    }
 
     Write-Verbose -Message "$myName Returning the result..."
     switch ($OutputType) {

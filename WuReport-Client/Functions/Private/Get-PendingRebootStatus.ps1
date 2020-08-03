@@ -6,14 +6,19 @@ function Get-PendingRebootStatus {
     [string]$myName         = "$($MyInvocation.InvocationName):"
     Write-Verbose -Message  "$myName Starting the function..."
 
+    $sysInfo = (Get-WmiObject -Class Win32_OperatingSystem).Name
+
     [string[]]$ifKeyExists      = @(
-        'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending'
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootInProgress'
         'HKLM:\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing\PackagesPending'
         'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\PostRebootReporting'
         'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
     )
+
+    if ($sysInfo -match 'Server') {
+        $ifKeyExists            = $ifKeyExists += 'HKLM:\SOFTWARE\Microsoft\ServerManager\CurrentRebootAttempts'
+    }
 
     [string]$ifSubkeyExists     = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\Pending'
 
@@ -76,28 +81,51 @@ function Get-PendingRebootStatus {
 
     #   Looking for existing values
     Write-Verbose -Message "$myName Looking for existing values..."
-    [bool]$regValuesExisting    = (
-        $null   -ne $ifValueExists.Keys.Where({
-            [string]$regValueName   = $_
-            [string]$regPathCurrent = $ifValueExists.$regValueName
-            (Test-Path -Path $regPathCurrent) -and `
-            (Get-Item -Path $regPathCurrent).GetValue($regValueName)
-        })
-    )
+    [int]$valuesExistingCount   = 0
+    $ifValueExists.Keys.ForEach({
+        [string]$regValueName   = $_
+        [string]$regPathCurrent = $ifValueExists.$regValueName
+        if (-not (Test-Path -Path $regPathCurrent)) {
+            [bool]$regValueCurrentExists    = $false
+        }
+        else {
+            [bool]$regValueCurrentExists    = ($null -ne (Get-Item -Path $regPathCurrent).GetValue($regValueName))
+        }
+        if ($regValueCurrentExists) {
+            $valuesExistingCount++
+        }
+    })
+    [bool]$regValuesExisting    = ($valuesExistingCount -gt 0)
 
     #   Check if the value 'UpdateExeVolatile' is not equal to 0:
     Write-Verbose -Message "$myName Check if the value 'UpdateExeVolatile' is not equal to 0:"
     [bool]$regValueNonZero      = (
         (Test-Path -Path $nonZeroValuePath) -and `
+        ($null -eq (Get-Item $nonZeroValuePath -ErrorAction SilentlyContinue)) -and `
         ((Get-Item -Path $nonZeroValuePath).GetValue($nonZeroValueName) -ne 0)
     )
 
     switch ($true) {
-        $theComputerRenamed {   $isPendingReboot = $true    }
-        $regKeysPresent     {   $isPendingReboot = $true    }
-        $regSubkeysPresent  {   $isPendingReboot = $true    }
-        $regValuesExisting  {   $isPendingReboot = $true    }
-        $regValueNonZero    {   $isPendingReboot = $true    }
+        $theComputerRenamed {
+            $isPendingReboot = $true
+            Write-Verbose -Message "$myName Computer renaming in progress"
+        }
+        $regKeysPresent     {
+            $isPendingReboot = $true
+            Write-Verbose -Message "$myName One or more registry keys present"
+        }
+        $regSubkeysPresent  {
+            $isPendingReboot = $true
+            Write-Verbose -Message "$myName One or more registry subkeys present"
+        }
+        $regValuesExisting  {
+            $isPendingReboot = $true
+            Write-Verbose -Message "$myName One or more registry values exists"
+        }
+        $regValueNonZero    {
+            $isPendingReboot = $true
+            Write-Verbose -Message "$myName Registry value is non-zero"
+        }
         Default             {   $isPendingReboot = $false   }
     }
 
