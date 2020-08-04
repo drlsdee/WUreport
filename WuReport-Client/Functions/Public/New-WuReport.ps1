@@ -1,4 +1,4 @@
-function Get-WuReport {
+function New-WuReport {
     [CmdletBinding()]
     param (
         #   Type of WU service:

@@ -17,6 +17,11 @@ function Show-MessageToAll {
         [string]
         $Reason,
 
+        # Maximum delay value in business days
+        [Parameter()]
+        [int]
+        $DelayMax = 3,
+
         # Time to display
         [Parameter()]
         [int]
@@ -30,13 +35,13 @@ function Show-MessageToAll {
             [string]$messageBody    = "$env:COMPUTERNAME is pending for reboot."
         }
         'RebootNow'         {
-            [string]$messageBody    = "$env:COMPUTERNAME is waiting for reboot more than 3 days and will be restarted immediately!"
+            [string]$messageBody    = "$env:COMPUTERNAME is waiting for reboot more than $DelayMax business days and will be restarted immediately!"
         }
         'UpdatesPending'    {
             [string]$messageBody    = "$env:COMPUTERNAME is waiting for installation of critical and security updates."
         }
         'UpdateNow'         {
-            [string]$messageBody    = "$env:COMPUTERNAME is waiting for installation of critical and security updates for more than 3 days! The updates will be installed immediately. This computer may reboot during installation."
+            [string]$messageBody    = "$env:COMPUTERNAME is waiting for installation of critical and security updates for more than $DelayMax business days! The updates will be installed immediately. This computer may reboot during installation."
         }
     }
 

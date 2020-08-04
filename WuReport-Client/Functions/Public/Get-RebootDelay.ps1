@@ -6,6 +6,11 @@ function Get-RebootDelay {
         [string]
         $StartDateString,
 
+        # Maximum delay value in business days
+        [Parameter()]
+        [int]
+        $DelayMax = 3,
+
         # Weekends
         [Parameter()]
         [ValidateSet(
@@ -50,12 +55,12 @@ function Get-RebootDelay {
     } while ($dayToEval -le $dateCurrent)
     Write-Verbose -Message "$myName Days total: $(($dateCurrent - $dateStart).Days); business days: $($businessDays)"
 
-    if ($businessDays -lt 3) {
-        Write-Verbose -Message "$myName Delay is less than the limit value."
+    if ($businessDays -lt $DelayMax) {
+        Write-Verbose -Message "$myName Delay is less than the limit value of $DelayMax business days."
         return $false
     }
     else {
-        Write-Verbose -Message "$myName Delay reached the limit value. Pending actions will be executed immediately."
+        Write-Verbose -Message "$myName Delay reached the limit value of $DelayMax business days. Pending actions will be executed immediately."
         return $true
     }
 }
