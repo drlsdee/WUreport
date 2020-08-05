@@ -30,18 +30,24 @@ function Show-MessageToAll {
     [string]$myName         = "$($MyInvocation.InvocationName):"
     Write-Verbose -Message  "$myName Starting the function..."
 
+    Import-LocalizedData -BindingVariable messageLocalizedData
+
     switch ($Reason) {
         'RebootPending'     {
-            [string]$messageBody    = "$env:COMPUTERNAME is pending for reboot."
+            #[string]$messageBody    = "$env:COMPUTERNAME is pending for reboot."
+            [string]$messageBody    = "$($env:COMPUTERNAME) $($messageLocalizedData.RebootPending0)"
         }
         'RebootNow'         {
-            [string]$messageBody    = "$env:COMPUTERNAME is waiting for reboot more than $DelayMax business days and will be restarted immediately!"
+            #[string]$messageBody    = "$($env:COMPUTERNAME) is waiting for reboot more than $($DelayMax) business days and will be restarted immediately!"
+            [string]$messageBody    = "$($env:COMPUTERNAME) $($messageLocalizedData.RebootNow0) $($DelayMax) $($messageLocalizedData.RebootNow1)"
         }
         'UpdatesPending'    {
-            [string]$messageBody    = "$env:COMPUTERNAME is waiting for installation of critical and security updates."
+            #[string]$messageBody    = "$($env:COMPUTERNAME) is waiting for installation of critical and security updates."
+            [string]$messageBody    = "$($env:COMPUTERNAME) $($messageLocalizedData.UpdatesPending0)"
         }
         'UpdateNow'         {
-            [string]$messageBody    = "$env:COMPUTERNAME is waiting for installation of critical and security updates for more than $DelayMax business days! The updates will be installed immediately. This computer may reboot during installation."
+            #[string]$messageBody    = "$($env:COMPUTERNAME) is waiting for installation of critical and security updates for more than $($DelayMax) business days! The updates will be installed immediately. This computer may reboot during installation."
+            [string]$messageBody    = "$($env:COMPUTERNAME) $($messageLocalizedData.UpdateNow0) $($DelayMax) $($messageLocalizedData.UpdateNow1)"
         }
     }
 
