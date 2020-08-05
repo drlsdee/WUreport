@@ -29,6 +29,7 @@ function Get-RebootDelay {
     Write-Verbose -Message  "$myName Starting the function..."
 
     try {
+        Write-Verbose -Message "$myName Parsing string with datestamp: $StartDateString"
         [datetime]$dateStart    = [datetime]::Parse($StartDateString)
     }
     catch {
