@@ -1,5 +1,39 @@
 # WUreport
 
+## Delivery
+###  You may publish your module to a PowerShell repository:
+
+1.  Getting a list of registered PS repos
+    
+    `Get-PSRepository`
+    
+    Register a repo on the file share
+    
+    `[string]$repoPath = '\\fileserver\hiddenShare$\PSModules'`
+    
+    `[string]$repoName = 'TemporaryLocalRepo'`
+    
+    `Register-PSRepository -Name $repoName -SourceLocation $repoPath -PublishLocation $repoPath -ScriptSourceLocation $repoPath -ScriptPublishLocation $repoPath -InstallationPolicy Trusted -PackageManagementProvider NuGet`
+
+2.  Publish your module
+    
+    It would be better if this repository was also registered on the developer's computer. But you may just specify the share path.
+    Like here: https://docs.microsoft.com/ru-ru/powershell/scripting/gallery/how-to/working-with-local-psrepositories
+    You need to have NuGet on the developer or publisher machine, or on a node of your CI system (e.g. Jenkins).
+    Run:
+    
+    `Publish-Module -Path <path to the root directory of your module> -Repository $repoName  -NuGetApiKey 'none'`
+
+3.  Find and install the module on client computers:
+    
+    `Find-Module -Repository $repoName`
+
+4.  You can write a PS script, that checks if your repository is registered, and assign this script as startup script via GPO. Do not forget about PowerShell execution policy!
+
+### Or you may deliver the module as MSI package with GPO
+### Or, maybe, just deliver the files with GPO preferences
+
+
 ## Preamble
 Необходимо решить задачу контроля и мониторинга обновления пользовательских рабочих станций (PC) и терминальных машин. Предполагается, что учётная запись, под которой будет решаться задача, имеет права администратора на целевых PC и WSUS, а также возможно создание групповой политики AD.
 Задача разбита на 3 части которые можно решать по отдельности или вместе.
