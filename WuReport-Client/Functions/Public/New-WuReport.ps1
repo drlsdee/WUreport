@@ -103,6 +103,8 @@ function New-WuReport {
     }
 
     Write-Verbose -Message "$myName Returning the result..."
+    return $reportTable
+<# 
     switch ($OutputType) {
         'Hashtable' {
             return $reportTable
@@ -111,5 +113,5 @@ function New-WuReport {
             [string]$reportJson     = ConvertTo-Json -InputObject $reportTable -Compress -Depth 100
             return $reportJson
         }
-    }
+    } #>
 }
