@@ -14,102 +14,151 @@ function Get-WuReport {
         [string]
         $ServiceType    = 'WSUS',
 
-        # Output type
+        # Path to a folder where report files stored, e.g. fileshare. If not set, will be substituted with $env:ProgramData
         [Parameter()]
-        [ValidateSet('Hashtable', 'JSON')]
         [string]
-        $OutputType = 'JSON'
+        $Path,
+
+        # A name for the folder with your custom PS modules data
+        [Parameter()]
+        [string]
+        $PSCustomDataFolder = 'PSCustomData',
+
+        # Maximum delay value in business days
+        [Parameter()]
+        [int]
+        $DelayMax = 3,
+
+        # Weekends
+        [Parameter()]
+        [ValidateSet(
+            'Sunday',
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+            'Saturday'
+        )]
+        [string[]]
+        $Weekends   = @('Sunday', 'Saturday'),
+
+        # Time to display
+        [Parameter()]
+        [int]
+        $TimeToDisplay  = 180,
+
+        # Reboot timeout
+        [Parameter()]
+        [int]
+        $RebootTimeout  = 300
     )
     [string]$myName         = "$($MyInvocation.InvocationName):"
     Write-Verbose -Message  "$myName Starting the function..."
-
-    [hashtable]$reportTable = @{}
-
-    #   This string will be a part of the report filename, so we should avoid invalid characters like ":".
-    [string]$reportDateTime = [datetime]::UtcNow.ToString('yyyyMMddTHHmmss.fff')
-
-    [System.Management.ManagementObject]$compNameInfo   = Get-WmiObject -Class Win32_ComputerSystem -Property DNSHostName, Domain
-    [string]$thisDnsHostName    = "$($compNameInfo.DNSHostName)", "$($compNameInfo.Domain)" -join '.'
-    Write-Verbose -Message "$myName Collecting info from this computer: $thisDnsHostName"
-
-    Write-Verbose -Message "$myName Getting WSUS URIs from the registry..."
-    [hashtable]$wsusUris    = Get-WsusUri
-
-    Write-Verbose -Message "$myName Getting `"Pending reboot`" state..."
-    [bool]$pendingReboot    = Get-PendingRebootStatus
-
-    Write-Verbose -Message "$myName Getting the usernames of the users logged on..."
-    [string[]]$userNames    = Get-LoggedUserNames
-
-    Write-Verbose -Message "$myName Getting the Windows Update history..."
-    [hashtable[]]$wuHistAll = Get-WuHistory -ServiceType $ServiceType
-    if ($wuHistAll.Pending) {
-        [bool]$pendingUpdates   = $true
+    #   Getting last report
+    [psobject]$reportLast       = Import-WuReport -Path $Path -PSCustomDataFolder $PSCustomDataFolder
+    #   Getting current report
+    [hashtable]$reportCurrent   = New-WuReport -ServiceType $ServiceType
+    if  (
+        (-not $reportCurrent) -and `
+        (-not $reportLast)
+    )
+    {
+        Write-Warning -Message "$myName Unable to get both current and last reports! Exiting."
+        return
     }
-    else {
-        [bool]$pendingUpdates   = $false
-    }
-    [datetime[]]$datesAll       = @()
-    $wuHistAll.Keys.Where({$_ -ne 'Pending'}).ForEach({
-        [string]$keyName        = $_
-        if ($wuHistAll.$keyName)
-        {
-            [hashtable[]]$wuEvents  = $wuHistAll.$keyName
-            [datetime]$dateLast     = ($wuEvents.Date | Sort-Object -Descending)[0]
-            $datesAll               += $dateLast
-        }
-    })
-    if ($datesAll) {
-        [nullable[datetime]]$lastInstallDate    = ($datesAll | Sort-Object -Descending)[0]
-        [string]$lastInstallDateString          = $lastInstallDate.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
-    }
-    else {
-        [nullable[datetime]]$lastInstallDate    = $null
-        [string]$lastInstallDateString          = [string]::Empty
+    #   Check the schema
+    [string[]]$keysMustPresent  = @(
+        'ComputerName'
+        'ReportDate'
+        'WindowsUpdate'
+        'UpdatesPending'
+        'PendingReboot'
+    )
+    [string[]]$keysFound    = $reportCurrent.Keys
+    [string[]]$keysMissing  = $keysMustPresent.Where({$_ -notin $keysFound})
+    if ($keysMissing) {
+        Write-Warning -Message "$myName The current Report data does not contain the following required keys: $($keysMissing -join ', '). Exiting."
+        return
     }
 
-    Write-Verbose -Message "$myName Filling the report values..."
-    $reportTable.ComputerName       = $thisDnsHostName
-
-    $reportTable.ReportDate         = $reportDateTime
-
-    $wsusUris.Keys.ForEach({
-        $reportTable.$_             = $wsusUris.$_
-    })
-
-    $reportTable.UserNames          = $userNames
-
-    $reportTable.WindowsUpdate      = $wuHistAll
-
-    $reportTable.UpdatesPending     = $pendingUpdates
-
-    $reportTable.LastInstall        = $lastInstallDate
-
-    $reportTable.LastInstallString  = $lastInstallDateString
-
-    $reportTable.PendingReboot      = $pendingReboot
+    [string]$timeStampRebootLast    = $reportLast.TimeStampRebootRequired
+    [string]$timeStampUpdatesLast   = $reportLast.TimeStampUpdatesFound
 
     switch ($true) {
-        $pendingReboot  {
-            $reportTable.TimeStampRebootRequired    = [datetime]::Now.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
+        ($null -ne $timeStampRebootLast)    {
+            [bool]$delayExceededReboot  = Get-RebootDelay -StartDateString $timeStampRebootLast -DelayMax $DelayMax -Weekends $Weekends
         }
-        $pendingUpdates {
-            $reportTable.TimeStampUpdatesFound      = [datetime]::Now.ToString('yyyy-MM-ddTHH:mm:ss.fffffffK')
+        ($null -ne $timeStampUpdatesLast)   {
+            [bool]$delayExceededUpdates = Get-RebootDelay -StartDateString $timeStampUpdatesLast -DelayMax $DelayMax -Weekends $Weekends
         }
         Default {
-            $reportTable.TimeStampUpdatesFound      = $null
-            $reportTable.TimeStampRebootRequired    = $null
+            [bool]$delayExceededReboot  = $false
+            [bool]$delayExceededUpdates = $false
         }
     }
 
-    Write-Verbose -Message "$myName Returning the result..."
-    switch ($OutputType) {
-        'Hashtable' {
-            return $reportTable
+    #   Messages count
+    [int]$messagesUpdate    = $reportLast.MessagesUpdate
+    [int]$messagesReboot    = $reportLast.MessagesReboot
+    Write-Verbose -Message "$myName Messages displayed: about pending updates: $($messagesUpdate); about pending reboot: $($messagesReboot)."
+
+    #   If any pending actions have been detected, show messages and increment counters
+    #   Multiple "if-else" conditions used because I don't want to show to users a bunch of annoying messages like it may happen with "switch" statement.
+    if      ($delayExceededReboot)
+    {
+        Show-MessageToAll -Users $reportCurrent.UserNames -DelayMax $DelayMax -TimeToDisplay $TimeToDisplay -Reason RebootNow
+        $messagesReboot ++
+    }
+    elseif  ($delayExceededUpdates)
+    {
+        Show-MessageToAll -Users $reportCurrent.UserNames -DelayMax $DelayMax -TimeToDisplay $TimeToDisplay -Reason UpdateNow
+        $messagesUpdate ++
+    }
+    elseif  ($reportCurrent.PendingReboot)
+    {
+        Show-MessageToAll -Users $reportCurrent.UserNames -DelayMax $DelayMax -TimeToDisplay $TimeToDisplay -Reason RebootPending
+        $messagesReboot ++
+    }
+    elseif  ($reportCurrent.UpdatesPending)
+    {
+        Show-MessageToAll -Users $reportCurrent.UserNames -DelayMax $DelayMax -TimeToDisplay $TimeToDisplay -Reason UpdatesPending
+        $messagesUpdate ++
+    }
+    #   Reset counters if no pending actions detected; here we can use "switch" statement.
+    switch ($false) {
+        $reportCurrent.PendingReboot    {
+            $messagesReboot = 0
         }
-        'JSON'      {
-            [string]$reportJson     = ConvertTo-Json -InputObject $reportTable -Compress -Depth 100
-            return $reportJson
+        $reportCurrent.UpdatesPending   {
+            $messagesUpdate = 0
         }
+    }
+
+    #   Adding message counters to the current report
+    $reportCurrent.MessagesUpdate   = $messagesUpdate
+    $reportCurrent.MessagesReboot   = $messagesReboot
+
+    #   Convert the report to a JSON string and export.
+    [string]$reportCurrentJSON      = ConvertTo-Json -InputObject $reportCurrent -Compress -Depth 100   # max depth; I hope we'll never reach it
+    [bool]$reportSavingResult       = Export-WuReport -PSCustomDataFolder $PSCustomDataFolder -Path $Path -ReportData $reportCurrentJSON
+    if (-not $reportSavingResult) {
+        Write-Warning -Message "$myName The current report was not saved!"
+    }
+
+    #   And do the things here: install updates, reboot computer.
+    if ($delayExceededReboot) {
+        Write-Verbose -Message "$myName The computer $env:COMPUTERNAME will restart after $RebootTimeout seconds."
+        Start-Sleep -Seconds $RebootTimeout
+        Restart-Computer -Force -Confirm:$false -Timeout 1
+        return
+    }
+    elseif ($delayExceededUpdates) {
+        Write-Verbose -Message "$myName The computer $env:COMPUTERNAME will now start installing updates."
+        return (Install-UpdatesImmediately -ServiceType $ServiceType)
+    }
+    else {
+        Write-Verbose -Message "$myName No pending actions were detected. End of the function."
+        return
     }
 }
