@@ -1,4 +1,3 @@
-#culture="en-US"
 ConvertFrom-StringData -StringData @'
 RebootPending0  = is pending for reboot.
 RebootNow0      = is waiting for reboot more than
