@@ -76,7 +76,13 @@ function Get-WuHistory {
                 ($wuEventsAll.$kbNumberStr.Date -lt $installDate)
             )
             {
-                Write-Verbose -Message "$myName Update: KB No $($kbNumberStr); Installation date: $($installDate); Result: $($updateResultString)"
+                [string]$wuMessageString    = "$myName Update: KB No $($kbNumberStr); Installation date: $($installDate); Result: $($updateResultString)"
+                if ($wuEventsAll.Keys.Count -le 10) {
+                    Write-Verbose -Message $wuMessageString
+                }
+                else {
+                    Write-Information -MessageData $wuMessageString
+                }
                 $wuEventsAll.$kbNumberStr   = $wuEventCurrent
             }
         }
