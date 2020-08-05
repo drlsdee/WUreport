@@ -1,0 +1,31 @@
+TOPIC
+    about_Get-WuReport
+SYNOPSIS
+    The function collects a report on Windows Update on the local computer and runs pending actions if necessary.
+DESCRIPTION
+    The function collects a report on Windows Update on the local computer. The report should include data such as:
+    - WSUS URI;
+    - timestamp of the last updates installation;
+    - timestamp of the last detection of pending actions (such as reboots or installing updates);
+    - a collections of succeeded, failed, aborted and pending Windows updates;
+    - a list of interactive users;
+    - et cetera.
+    The function also displays the message to all interactive users, if at least one of the pending actions was detected.
+    If the local computer is waiting for a reboot or for updates installation for more than a certain number of business days, the function will do the things immediately.
+    All reports stored as a JSON files in the folder defined in parameters. If the folder is not defined, the default folder path is "$env:ProgramData\PSCustomData\<ModuleName>\"
+EXAMPLE
+    PS C:\> Get-WuReport -ServiceType MicrosoftUpdate -Path C:\reports\ -PSCustomDataFolder Data -Weekends @('Sunday', 'Saturday') -DelayMax 3 -TimeToDisplay 60 -RebootTimeout 180
+    The update source will be installed on Microsoft Update.
+    The folder for storing reports is "C:\reports". The parameter "PSCustomDataFolder" in that case will be ignored.
+    Sunday and Saturday are days off.
+    The maximum delay for pending actions is 3 business days.
+    The message should be displayed to users within 60 seconds.
+    The timeout before rebooting (if necessary) will be set to 180 seconds.
+INPUTS
+    [System.String]
+    [System.String[]]
+    [System.Int32]
+OUTPUTS
+    $null
+NOTES
+    Don't forget about the "second hop problem" when you run this function from a remote PowerShell session and expect data to be saved to a remote file share.
