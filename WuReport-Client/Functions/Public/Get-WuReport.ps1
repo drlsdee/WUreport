@@ -88,10 +88,12 @@ function Get-WuReport {
     switch ($true) {
         ($timeStampRebootLast.Length -gt 0)     {
             Write-Verbose -Message "$myName Last timestamp when pending reboot was detected: $timeStampRebootLast"
+            $reportCurrent.TimeStampRebootRequired  = $timeStampRebootLast
             [bool]$delayExceededReboot  = Get-RebootDelay -StartDateString $timeStampRebootLast -DelayMax $DelayMax -Weekends $Weekends
         }
         ($timeStampUpdatesLast.Length -gt 0)    {
             Write-Verbose -Message "$myName Last timestamp when pending updates were detected: $timeStampUpdatesLast"
+            $reportCurrent.TimeStampUpdatesFound    = $timeStampUpdatesLast
             [bool]$delayExceededUpdates = Get-RebootDelay -StartDateString $timeStampUpdatesLast -DelayMax $DelayMax -Weekends $Weekends
         }
         Default {
