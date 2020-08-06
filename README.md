@@ -33,6 +33,8 @@
 ### Or you may deliver the module as MSI package with GPO
 ### Or, maybe, just deliver the files with GPO preferences
 
+## Run
+You may use script like [this](/Examples/ExampleRun.ps1) and either deploy it with GP preferences and add to the Task Sheduler, or set it as a startup script. And again: do not forget about PowerShell execution policy!
 
 ## Preamble
 Необходимо решить задачу контроля и мониторинга обновления пользовательских рабочих станций (PC) и терминальных машин. Предполагается, что учётная запись, под которой будет решаться задача, имеет права администратора на целевых PC и WSUS, а также возможно создание групповой политики AD.
