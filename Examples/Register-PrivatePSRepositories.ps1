@@ -49,7 +49,7 @@ $myData = @{
 #   And after all you can and should put this entire table in the lines above in a separate PowerShell data file.
 #   Why? You can include the below function in the "profile.ps1" file and deploy this file with one GPO across a wide range of your AD domain.
 #   And then you can deliver the PSData files with strictly defined lists of repositories by linking a separate GPO to each organizational unit.
-function Register-LocalPSRepositories {
+function Register-PrivatePSRepositories {
     [CmdletBinding()]
     param (
         # Input object: a collection of hashtables containing parameters for PowerShell repository registration
@@ -96,4 +96,4 @@ function Register-LocalPSRepositories {
 if ($Path) {
     $myData = Import-PowerShellDataFile -Path $Path
 }
-Register-LocalPSRepositories -InputObject $myData
+Register-PrivatePSRepositories -InputObject $myData

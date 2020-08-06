@@ -26,9 +26,9 @@
 
 3.  Find and install the module on client computers:
     
-    `Find-Module -Repository $repoName`
+    `Find-Module $moduleName -Repository $repoName | Install-Module`
 
-4.  You can write a PS script, that checks if your repository is registered, and assign this script as startup script via GPO. Do not forget about PowerShell execution policy!
+4.  You can write a [PS script](/Examples/Register-PrivatePSRepositories.ps1), that checks if your repository is registered, and assign this script as startup script via GPO. Do not forget about PowerShell execution policy!
 
 ### Or you may deliver the module as MSI package with GPO
 ### Or, maybe, just deliver the files with GPO preferences
