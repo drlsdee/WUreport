@@ -1,5 +1,7 @@
 # WUreport
 
+# This repository was a test task. Archived.
+
 ## Delivery
 ###  You may publish your module to a PowerShell repository:
 
